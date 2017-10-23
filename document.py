@@ -219,12 +219,12 @@ def perform_document(sources, destination, whitelist, blacklist, compress, compr
         if os.path.isdir(source):
             if replace:
                 destination_tree = get_file_tree(destination, destination, [], [], False, None)
-                print(destination_tree)
                 source_tree = get_file_tree(source, source, whitelist, blacklist, compress, compression_threshold)
                 for file in destination_tree:
                     found = False
                     for i in range(0, len(source_tree)):
                         if file[len(destination):] == source_tree[i][len(source):]:
+                            source_tree.pop(i)
                             found = True
                             break
                     if not found:
