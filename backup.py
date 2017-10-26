@@ -26,25 +26,10 @@ def parse_args():
     return parser.parse_args()
 
 
-# def size_if_newer(source, destination):
-#     source_stat = os.stat(source)
-#
-#     list_of_files = glob.glob(destination + '//*')
-#     print(list_of_files)
-#     if len(list_of_files) > 0:
-#         latest_file = max(list_of_files, key=os.path.getctime)
-#     else:
-#         print(source_stat.st_size)
-#         return source_stat.st_size
-#
-#     return source_stat.st_size if (source_stat.st_mtime - os.path.getctime(latest_file) > 1) else False
-
-
 def is_newer(source, destination):
     source_stat = os.stat(source)
 
     list_of_files = glob.glob(destination + '//*')
-    # print(list_of_files)
     if len(list_of_files) > 0:
         latest_file = max(list_of_files, key=os.path.getctime)
     else:
