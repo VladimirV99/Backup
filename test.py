@@ -11,5 +11,6 @@ def main():
     document.perform_document([os.getcwd() + '\\Tests\\test_document_2'], os.getcwd() + "\\Archive\\test_document_2", None,
                               None, True, None, False, True)
 
+
 if __name__ == '__main__':
     main()

@@ -1,2 +1,4 @@
 .idea
-archive*
+test.py
+archive *.py
+Archive *.*
