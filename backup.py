@@ -1,5 +1,4 @@
 import os
-import glob
 import sys
 import threading
 import argparse
@@ -156,7 +155,7 @@ def backup_source(source, destination, name, whitelist, blacklist, compress, com
         basename = os.path.basename(os.path.normpath(source))
         if name:
             basename = name[0]
-        destination = destination + '/' + basename + '_' + date
+        destination = os.path.join(destination, basename + '_' + date)
 
         if multithread:
             threads = []
