@@ -7,13 +7,13 @@ import tarfile
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Backup Documents')
     parser.add_argument('-d', '--destination', nargs=1, required=True, help='Document Destination')
     parser.add_argument('-s', '--source', nargs='+', required=True, help='Document Source Files')
     parser.add_argument('-w', '--whitelist', nargs='+', help='Files to Transfer')
     parser.add_argument('-b', '--blacklist', nargs='+', help='Files to Ignore')
     parser.add_argument('-c', '--compress', action='store_true', default=False, help='Should Tar')
-    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=[0], help='Compression Threshold')
+    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=0, help='Compression Threshold')
     parser.add_argument('-m', '--multithread', action='store_true', default=False, help='Should Use Threads')
     parser.add_argument('-r', '--replace', action='store_true', default=False, help='Should Replace Old Files')
 
@@ -25,8 +25,11 @@ def parse_args():
 
 
 def is_newer(source, destination):
-    source_stat = os.stat(source)
-    return source_stat.st_mtime - os.stat(destination).st_mtime > 1
+    if not os.path.exists(source):
+        return False
+    if not os.path.exists(destination):
+        return True
+    return os.stat(source).st_mtime - os.stat(destination).st_mtime > 1
 
 
 def transfer_file(source, destination, compression_threshold):
@@ -121,7 +124,7 @@ def get_file_tree(base, file, whitelist, blacklist, compress, compression_thresh
                         files.append(s)
             else:
                 if compress or (compression_threshold and (os.stat(s).st_size > compression_threshold > 0)):
-                    files.append(base + '\\' + os.path.basename(s) + '.tgz')
+                    files.append(os.path.join(base, os.path.basename(s) + '.tgz'))
                 else:
                     files.append(s)
     return files
@@ -166,8 +169,8 @@ def get_transfer_tree(base, source, destination, whitelist, blacklist, compress)
 def document_source(source, destination, whitelist, blacklist, compress, compression_threshold):
     print('DOCUMENTING ' + '\'' + source + '\'' + ' TO ' + '\'' + destination + '\'')
     name = os.path.basename(source)
-    destination_normal = destination + '\\' + name
-    destination_compressed = destination + '\\' + name + ".tgz"
+    destination_normal = os.path.join(destination, name)
+    destination_compressed = os.path.join(destination, name + ".tgz")
 
     if (not os.path.exists(destination_normal) and not os.path.exists(destination_compressed)) \
             or (compress and os.path.exists(destination_normal)) \

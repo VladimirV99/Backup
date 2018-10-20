@@ -1,5 +1,4 @@
 import os
-import glob
 import sys
 import threading
 import argparse
@@ -9,7 +8,7 @@ import datetime
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Backup Projects')
     parser.add_argument('-d', '--destination', nargs=1, required=True, help='Backup Destination')
     parser.add_argument('-s', '--source', nargs=1, required=True, help='Backup Source Files')
     parser.add_argument('-w', '--whitelist', nargs='+', help='Files to Transfer')
@@ -17,7 +16,7 @@ def parse_args():
     parser.add_argument('-n', '--name', nargs=1, default='', help='Destination Base Folder Name')
     parser.add_argument('-c', '--compress', action='store_true', default=False, help='Should Tar')
     parser.add_argument('-m', '--multithread', action='store_true', default=False, help='Should Use Threads')
-    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=[0], help='Compression Threshold')
+    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=0, help='Compression Threshold')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -27,15 +26,21 @@ def parse_args():
 
 
 def is_newer(source, destination):
+    if not os.path.exists(source) or not os.path.isdir(source):
+        return False
+    if not os.path.exists(destination) or not os.path.isdir(destination):
+        os.makedirs(destination)
+        return True
+
     source_stat = os.stat(source)
 
-    list_of_files = glob.glob(destination + '//*')
+    list_of_files = os.listdir(destination)
     if len(list_of_files) > 0:
-        latest_file = max(list_of_files, key=os.path.getctime)
+        latest_file = max(list_of_files, key=lambda fn: os.path.getctime(os.path.join(destination, fn)))
     else:
         return True
 
-    return source_stat.st_mtime - os.path.getctime(latest_file) > 1
+    return source_stat.st_mtime - os.path.getctime(os.path.join(destination, latest_file)) > 1
 
 
 def transfer_file(source, destination, compression_threshold):
@@ -150,7 +155,7 @@ def backup_source(source, destination, name, whitelist, blacklist, compress, com
         basename = os.path.basename(os.path.normpath(source))
         if name:
             basename = name[0]
-        destination = destination + '/' + basename + '_' + date
+        destination = os.path.join(destination, basename + '_' + date)
 
         if multithread:
             threads = []
