@@ -9,7 +9,7 @@ import datetime
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Backup Projects')
     parser.add_argument('-d', '--destination', nargs=1, required=True, help='Backup Destination')
     parser.add_argument('-s', '--source', nargs=1, required=True, help='Backup Source Files')
     parser.add_argument('-w', '--whitelist', nargs='+', help='Files to Transfer')
@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument('-n', '--name', nargs=1, default='', help='Destination Base Folder Name')
     parser.add_argument('-c', '--compress', action='store_true', default=False, help='Should Tar')
     parser.add_argument('-m', '--multithread', action='store_true', default=False, help='Should Use Threads')
-    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=[0], help='Compression Threshold')
+    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=0, help='Compression Threshold')
 
     if len(sys.argv) == 1:
         parser.print_help()
