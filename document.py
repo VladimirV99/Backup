@@ -7,13 +7,13 @@ import tarfile
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Backup Documents')
     parser.add_argument('-d', '--destination', nargs=1, required=True, help='Document Destination')
     parser.add_argument('-s', '--source', nargs='+', required=True, help='Document Source Files')
     parser.add_argument('-w', '--whitelist', nargs='+', help='Files to Transfer')
     parser.add_argument('-b', '--blacklist', nargs='+', help='Files to Ignore')
     parser.add_argument('-c', '--compress', action='store_true', default=False, help='Should Tar')
-    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=[0], help='Compression Threshold')
+    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=0, help='Compression Threshold')
     parser.add_argument('-m', '--multithread', action='store_true', default=False, help='Should Use Threads')
     parser.add_argument('-r', '--replace', action='store_true', default=False, help='Should Replace Old Files')
 
@@ -25,8 +25,11 @@ def parse_args():
 
 
 def is_newer(source, destination):
-    source_stat = os.stat(source)
-    return source_stat.st_mtime - os.stat(destination).st_mtime > 1
+    if not os.path.exists(source):
+        return False
+    if not os.path.exists(destination):
+        return True
+    return os.stat(source).st_mtime - os.stat(destination).st_mtime > 1
 
 
 def transfer_file(source, destination, compression_threshold):

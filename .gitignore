@@ -1,4 +1,5 @@
 .idea
+Tests
 test.py
 archive *.py
 Archive *.*

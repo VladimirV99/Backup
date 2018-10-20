@@ -27,15 +27,21 @@ def parse_args():
 
 
 def is_newer(source, destination):
+    if not os.path.exists(source) or not os.path.isdir(source):
+        return False
+    if not os.path.exists(destination) or not os.path.isdir(destination):
+        os.makedirs(destination)
+        return True
+
     source_stat = os.stat(source)
 
-    list_of_files = glob.glob(destination + '//*')
+    list_of_files = os.listdir(destination)
     if len(list_of_files) > 0:
-        latest_file = max(list_of_files, key=os.path.getctime)
+        latest_file = max(list_of_files, key=lambda fn: os.path.getctime(os.path.join(destination, fn)))
     else:
         return True
 
-    return source_stat.st_mtime - os.path.getctime(latest_file) > 1
+    return source_stat.st_mtime - os.path.getctime(os.path.join(destination, latest_file)) > 1
 
 
 def transfer_file(source, destination, compression_threshold):
