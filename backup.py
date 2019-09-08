@@ -40,7 +40,7 @@ def is_newer(source, destination):
     else:
         return True
 
-    return source_stat.st_mtime - os.path.getctime(os.path.join(destination, latest_file)) > 1
+    return source_stat.st_mtime - os.path.getctime(os.path.join(destination, latest_file)) > 5
 
 
 def transfer_file(source, destination, compression_threshold):

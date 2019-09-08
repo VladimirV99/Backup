@@ -29,7 +29,7 @@ def is_newer(source, destination):
         return False
     if not os.path.exists(destination):
         return True
-    return os.stat(source).st_mtime - os.stat(destination).st_mtime > 1
+    return os.stat(source).st_mtime - os.stat(destination).st_mtime > 5
 
 
 def transfer_file(source, destination, compression_threshold):
@@ -173,10 +173,10 @@ def document_source(source, destination, whitelist, blacklist, compress, compres
     destination_compressed = os.path.join(destination, name + ".tgz")
 
     if (not os.path.exists(destination_normal) and not os.path.exists(destination_compressed)) \
-            or (compress and os.path.exists(destination_normal)) \
-            or (os.path.exists(destination_normal) and is_newer(source, destination_normal)) \
             or (not compress and os.path.exists(destination_compressed)) \
-            or (os.path.exists(destination_compressed)) and is_newer(source, destination_compressed):
+            or (compress and os.path.exists(destination_normal)) \
+            or (not compress and os.path.exists(destination_normal) and is_newer(source, destination_normal)) \
+            or (compress and os.path.exists(destination_compressed)) and is_newer(source, destination_compressed):
         if os.path.isdir(source):
             if not compress and os.path.exists(destination_normal):
                 shutil.rmtree(destination_normal)
