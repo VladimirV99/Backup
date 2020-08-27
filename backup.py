@@ -6,6 +6,7 @@ import shutil
 import tarfile
 import datetime
 
+from typing import List
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Backup Projects')
@@ -176,14 +177,14 @@ def backup_source(source, destination, name, whitelist, blacklist, compress, com
         print('FILE IS UP TO DATE')
 
 
-def perform_backup(source, destination, name, whitelist, blacklist, compress, compression_threshold, multithread):
-    print('### STARTING BACKUP ####')
+def perform_backup(source:str, destination:str, name:str=None, whitelist:List[str]=None, blacklist:List[str]=None, compress:bool=True, compression_threshold:int=None, multithread:bool=False) -> None:
+    print('### STARTING BACKUP ###')
     print('BACKING UP ' + '\'' + source + '\'' + ' TO ' + '\'' + destination + '\'')
     backup_source(source, destination, name, whitelist, blacklist, compress, compression_threshold, multithread)
     print('### BACKUP COMPLETE ###')
 
 
-def main():
+def main() -> None:
     args = parse_args()
     perform_backup(args.source[0], args.destination[0], args.name, args.whitelist, args.blacklist, args.compress,
                    args.threshold[0], args.multithread)

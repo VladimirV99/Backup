@@ -5,6 +5,8 @@ import argparse
 import shutil
 import tarfile
 
+from typing import List
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Backup Documents')
@@ -209,8 +211,8 @@ def document_source(source, destination, whitelist, blacklist, compress, compres
         print('FILE \'' + source + '\' IS UP TO DATE')
 
 
-def perform_document(sources, destination, whitelist, blacklist, compress, compression_threshold, multithread, replace):
-    print('### STARTING DOCUMENTATION ####')
+def perform_document(sources:List[str], destination:str, whitelist:List[str]=None, blacklist:List[str]=None, compress:bool=False, compression_threshold:int=None, multithread:bool=False, replace:bool=False) -> None:
+    print('### STARTING DOCUMENTATION ###')
     for source in sources:
         if not os.path.exists(source):
             print('SOURCE NOT FOUND \'' + source + '\'')
@@ -254,7 +256,7 @@ def perform_document(sources, destination, whitelist, blacklist, compress, compr
     print('### DOCUMENTATION COMPLETE ###')
 
 
-def main():
+def main() -> None:
     args = parse_args()
     perform_document(args.source, args.destination[0], args.whitelist, args.blacklist, args.compress,
                      args.threshold[0], args.multithread, args.replace)
