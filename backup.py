@@ -1,23 +1,19 @@
 import os
 import sys
-import threading
 import argparse
 import shutil
 import tarfile
 import datetime
 
-from typing import List
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Backup Projects')
-    parser.add_argument('-d', '--destination', nargs=1, required=True, help='Backup Destination')
-    parser.add_argument('-s', '--source', nargs=1, required=True, help='Backup Source Files')
-    parser.add_argument('-w', '--whitelist', nargs='+', help='Files to Transfer')
-    parser.add_argument('-b', '--blacklist', nargs='+', help='Files to Ignore')
-    parser.add_argument('-n', '--name', nargs=1, default='', help='Destination Base Folder Name')
-    parser.add_argument('-c', '--compress', action='store_true', default=False, help='Should Tar')
-    parser.add_argument('-m', '--multithread', action='store_true', default=False, help='Should Use Threads')
-    parser.add_argument('-t', '--threshold', nargs=1, type=int, default=0, help='Compression Threshold')
+    parser = argparse.ArgumentParser(description='Backup Files')
+    parser.add_argument('-d', '--destination', required=True, help='Backup destination directory')
+    parser.add_argument('-s', '--source', required=True, help='Backup source file/folder')
+    parser.add_argument('-i', '--include', nargs='+', help='Files to transfer')
+    parser.add_argument('-e', '--exclude', nargs='+', help='Files to ignore')
+    parser.add_argument('-c', '--compress', action='store_true', default=False, help='Should compress source')
+    parser.add_argument('-f', '--force', action='store_true', default=False, help='Skip checking for changes')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -26,168 +22,139 @@ def parse_args():
     return parser.parse_args()
 
 
-def is_newer(source, destination):
-    if not os.path.exists(source) or not os.path.isdir(source):
+def get_last_modified(directory, include, exclude):
+    list_of_files = get_file_tree(directory, '', include, exclude)
+    latest_file = max(list_of_files, key=lambda fn: os.path.getmtime(os.path.join(directory, fn)), default=0)
+    return os.stat(os.path.join(directory, latest_file)).st_mtime
+
+
+def is_newer(source_time, destination_time):
+    return source_time - destination_time > 2
+
+
+def has_file_changed(source, destination):
+    if not os.path.exists(source):
         return False
-    if not os.path.exists(destination) or not os.path.isdir(destination):
-        os.makedirs(destination)
+    if not os.path.exists(destination):
         return True
-
-    source_stat = os.stat(source)
-
-    list_of_files = os.listdir(destination)
-    if len(list_of_files) > 0:
-        latest_file = max(list_of_files, key=lambda fn: os.path.getctime(os.path.join(destination, fn)))
-    else:
-        return True
-
-    return source_stat.st_mtime - os.path.getctime(os.path.join(destination, latest_file)) > 5
+    return is_newer(os.stat(source).st_mtime, os.stat(destination).st_mtime)
 
 
-def transfer_file(source, destination, compression_threshold):
+def transfer_file(source, destination):
     try:
-        size = os.stat(source).st_size
-        if compression_threshold and (size > compression_threshold > 0):
-            tar = tarfile.open(os.path.splitext(destination)[0] + ".tgz", "w:gz")
-            tar.add(source, arcname=os.path.basename(source))
-            tar.close()
+        if os.path.isdir(source):
+            if not os.path.exists(destination):
+                os.mkdir(destination)
+                shutil.copystat(source, destination)
         else:
-            if os.path.isdir(source):
-                print(source)
-                if not os.path.exists(destination):
-                    os.mkdir(destination)
-                    shutil.copystat(source, destination)
-            else:
-                shutil.copy2(source, destination)
+            shutil.copy2(source, destination)
     except FileNotFoundError:
         os.makedirs(os.path.dirname(destination))
-        transfer_file(source, destination, compression_threshold)
+        transfer_file(source, destination)
 
 
-def backup_source_threaded(source, destination, compression_threshold):
-    thread = threading.Thread(target=transfer_file, args=(source, destination, compression_threshold))
-    thread.start()
-    return thread
+def should_copy(file_name, include=None, exclude=None):
+    if include:
+        for include_item in include:
+            if file_name.startswith(include_item):
+                return True
+        return False
+
+    if exclude:
+        for exclude_item in exclude:
+            if file_name.startswith(exclude_item):
+                return False
+        return True
+
+    return True
 
 
-def copy_file_tree(base, source, destination, whitelist, blacklist, compression_threshold):
-    for item in os.listdir(source):
-        should_copy = False
-        s = os.path.join(source, item)
-
-        if whitelist:
-            for whitelist_item in whitelist:
-                if s.startswith(os.path.join(base, whitelist_item)):
-                    should_copy = True
-                    break
-            if not should_copy:
-                continue
-        else:
-            should_copy = True
-
-        if blacklist:
-            for blacklist_item in blacklist:
-                if s.startswith(os.path.join(base, blacklist_item)):
-                    should_copy = False
-                    break
-
-        if should_copy:
-            d = os.path.join(destination, item)
-            if os.path.isdir(s):
-                if not os.path.exists(d):
-                    os.makedirs(d)
-                copy_file_tree(base, s, d, whitelist, blacklist, compression_threshold)
-            else:
-                transfer_file(s, d, compression_threshold)
-            shutil.copystat(s, d)
+def get_file_tree(directory, base, include=None, exclude=None, update_dirs=False):
+    for item in os.listdir(directory):
+        s = os.path.join(base, item)
+        if should_copy(s, include, exclude):
+            yield s
+            if os.path.isdir(os.path.join(directory, item)):
+                yield from get_file_tree(os.path.join(directory, item), s, include, exclude, update_dirs)
+                if update_dirs:
+                    yield s
 
 
-def get_file_tree(base, source, destination, whitelist, blacklist, compress):
-    files = []
-    for item in os.listdir(source):
-        should_copy = False
-        s = os.path.join(source, item)
-
-        if whitelist:
-            for whitelist_item in whitelist:
-                if s.startswith(os.path.join(base, whitelist_item)):
-                    should_copy = True
-                    break
-            if not should_copy:
-                continue
-        else:
-            should_copy = True
-
-        if blacklist:
-            for blacklist_item in blacklist:
-                if s.startswith(os.path.join(base, blacklist_item)):
-                    should_copy = False
-                    break
-
-        if should_copy:
-            d = os.path.join(destination, item)
-            if os.path.isdir(s):
-                if not compress and not os.path.exists(d):
-                    os.makedirs(d)
-                if len(os.listdir(s)) == 0:
-                    files.append([s, d])
-                else:
-                    files = files + get_file_tree(base, s, d, whitelist, blacklist, compress)
-            else:
-                files.append([s, d])
-    return files
+def print_progress(header, status, is_end=False):
+    w, _ = shutil.get_terminal_size((80, 20))
+    print('\r' + header + ' ' * (w-len(status)-len(header)) + status, end='\n' if is_end else '')
 
 
-def backup_source(source, destination, name, whitelist, blacklist, compress, compression_threshold, multithread):
+def print_backup_state(file, status, is_end=False):
+    print_progress('Backing up ' + '\'' + file + '\'', status, is_end)
+
+
+def backup(source, destination, include=None, exclude=None, compress=False, compare_trees=False, force=False):
+    print_backup_state(source, 'WORKING')
     if not os.path.exists(source):
-        print('SOURCE NOT FOUND \'' + source + '\'')
-        return
-
-    if compress and multithread:
-        print('CANNOT COMPRESS IN THREADED MODE')
+        print_backup_state(source, 'NOT FOUND', True)
         return
 
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    if is_newer(source, destination):
-        date = str(datetime.datetime.now())[:16]
-        date = date.replace(' ', '_').replace(':', '')
-        basename = os.path.basename(os.path.normpath(source))
-        if name:
-            basename = name[0]
-        destination = os.path.join(destination, basename + '_' + date)
-
-        if multithread:
-            threads = []
-            for file in get_file_tree(source, source, destination, whitelist, blacklist, False):
-                threads.append(backup_source_threaded(file[0], file[1], compression_threshold))
-
-            for thread in threads:
-                thread.join()
-        else:
-            if compress:
-                tar = tarfile.open(destination + ".tgz", "w:gz")
-                for file in get_file_tree(source, source, destination, whitelist, blacklist, True):
-                    tar.add(file[0], arcname=file[1].replace(destination, ""))
+    if os.path.isdir(source):
+        if compress:
+            destination_compressed = os.path.join(destination, os.path.basename(source) + '.tgz')
+            last_modified = get_last_modified(source, include, exclude)
+            if force or not os.path.exists(destination_compressed) or is_newer(last_modified, os.stat(destination_compressed).st_mtime):
+                tar = tarfile.open(destination_compressed, 'w')
+                for file_item in get_file_tree(source, '', include, exclude):
+                    tar.add(os.path.join(source, file_item), arcname=file_item, recursive=False)
                 tar.close()
+                os.utime(destination_compressed, (last_modified, last_modified))
+                print_backup_state(source, 'DONE', True)
             else:
-                copy_file_tree(source, source, destination, whitelist, blacklist, compression_threshold)
+                print_backup_state(source, 'UP TO DATE', True)
+        else:
+            if compare_trees:
+                for file_item in get_file_tree(destination, '', None, None):
+                    if not os.path.exists(os.path.join(source, file_item)) or not should_copy(file_item, include, exclude):
+                        d = os.path.join(destination, file_item)
+                        if os.path.isdir(d):
+                            shutil.rmtree(d)
+                        else:
+                            os.remove(d)
+            for file_item in get_file_tree(source, '', include, exclude, True):
+                s = os.path.join(source, file_item)
+                d = os.path.join(destination, file_item)
+                if os.path.isdir(s):
+                    if not os.path.exists(d):
+                        os.makedirs(d)
+                    shutil.copystat(s, d)
+                else:
+                    if force or has_file_changed(s, d):
+                        transfer_file(s, d)
+            print_backup_state(source, 'DONE', True)
     else:
-        print('FILE IS UP TO DATE')
-
-
-def perform_backup(source:str, destination:str, name:str=None, whitelist:List[str]=None, blacklist:List[str]=None, compress:bool=True, compression_threshold:int=None, multithread:bool=False) -> None:
-    print('### STARTING BACKUP ###')
-    print('BACKING UP ' + '\'' + source + '\'' + ' TO ' + '\'' + destination + '\'')
-    backup_source(source, destination, name, whitelist, blacklist, compress, compression_threshold, multithread)
-    print('### BACKUP COMPLETE ###')
+        file_name, file_ext = os.path.splitext(source)
+        if compress and file_ext != '.tgz':
+            d = os.path.join(destination, os.path.basename(file_name) + '.tgz')
+            if force or has_file_changed(source, d):
+                tar = tarfile.open(d, 'w')
+                tar.add(source, arcname=os.path.basename(source))
+                tar.close()
+                shutil.copystat(source, d)
+                print_backup_state(source, 'DONE', True)
+            else:
+                print_backup_state(source, 'UP TO DATE', True)
+        else:
+            d = os.path.join(destination, os.path.basename(source))
+            if force or has_file_changed(source, d):
+                transfer_file(source, d)
+                print_backup_state(source, 'DONE', True)
+            else:
+                print_backup_state(source, 'UP TO DATE', True)
 
 
 def main() -> None:
     args = parse_args()
-    perform_backup(args.source[0], args.destination[0], args.name, args.whitelist, args.blacklist, args.compress,
-                   args.threshold[0], args.multithread)
+    perform_backup(args.source, args.destination, args.include, args.exclude, args.compress, args.force)
 
 
 if __name__ == '__main__':
