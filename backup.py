@@ -3,7 +3,6 @@ import sys
 import argparse
 import shutil
 import tarfile
-import datetime
 
 
 def parse_args():
@@ -13,6 +12,7 @@ def parse_args():
     parser.add_argument('-i', '--include', nargs='+', help='Files to transfer')
     parser.add_argument('-e', '--exclude', nargs='+', help='Files to ignore')
     parser.add_argument('-c', '--compress', action='store_true', default=False, help='Should compress source')
+    parser.add_argument('-t', '--trees', action='store_true', default=False, help='Remove deleted files in destination')
     parser.add_argument('-f', '--force', action='store_true', default=False, help='Skip checking for changes')
 
     if len(sys.argv) == 1:
@@ -107,7 +107,8 @@ def backup(source, destination, include=None, exclude=None, compress=False, comp
                 for file_item in get_file_tree(source, '', include, exclude):
                     tar.add(os.path.join(source, file_item), arcname=file_item, recursive=False)
                 tar.close()
-                os.utime(destination_compressed, (last_modified, last_modified))
+                # Windows doesn't parse time data correctly
+                # os.utime(destination_compressed, (last_modified, last_modified))
                 print_backup_state(source, 'DONE', True)
             else:
                 print_backup_state(source, 'UP TO DATE', True)
@@ -130,6 +131,7 @@ def backup(source, destination, include=None, exclude=None, compress=False, comp
                 else:
                     if force or has_file_changed(s, d):
                         transfer_file(s, d)
+            shutil.copystat(source, destination)
             print_backup_state(source, 'DONE', True)
     else:
         file_name, file_ext = os.path.splitext(source)
@@ -154,7 +156,7 @@ def backup(source, destination, include=None, exclude=None, compress=False, comp
 
 def main() -> None:
     args = parse_args()
-    perform_backup(args.source, args.destination, args.include, args.exclude, args.compress, args.force)
+    backup(args.source, args.destination, args.include, args.exclude, args.compress, args.trees, args.force)
 
 
 if __name__ == '__main__':
