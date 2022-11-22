@@ -3,7 +3,7 @@ import sys
 import argparse
 import shutil
 import tarfile
-import datetime
+from datetime import datetime
 
 
 def parse_args():
@@ -107,8 +107,7 @@ def backup(source, destination, name=None, include=None, exclude=None, compress=
     backup_file = None
 
     if force or has_version_changed(source, destination, name, include, exclude):
-        date = str(datetime.datetime.now())
-        date = date.replace(' ', '_').replace(':', '')
+        date = datetime.now().strftime('%Y_%m_%d_%H%M%S')
         if name:
             basename = name
         else:
